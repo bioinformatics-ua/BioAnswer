@@ -3,17 +3,65 @@ import Highlighter from 'react-highlight-words';
 import './App.css';
 
 const BioAnswer = () => {
-    const [query, setQuery] = useState("");
+    const [query, setQuery] = useState("What is the triad of the Eagle-Barrett Syndrome?");
     const [paper, setPaper] = useState(null);
     const [answer, setAnswer] = useState(null);
+    const [sentences, setSentences] = useState([]);
 
     const handleSearch = async () => {
         // Perform search here, fetch paper data and answer from your backend/API
         // For now, we'll set dummy data
-        setPaper({
-            title: 'The structure of the SARS-CoV-2 spike glycoprotein',
-            abstract: 'This is the abstract of the paper.'
+
+        const response = await fetch('http://mednat.ieeta.pt:8482/api/top', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ question: query }),
         });
+
+        if (!response.ok) {
+            // handle error
+            console.error('Search request failed');
+            return;
+        }
+    
+        const data = await response.json();
+
+        setPaper({
+            title: data.doc_id,
+            abstract: data.text
+        });
+        
+        // multiple awaits
+        // await Promise.all([someCall(), anotherCall()]);
+        
+        const sentencesResponse = await fetch('http://mednat.ieeta.pt:8482/api/sentences', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ question: query, text: data.text}),
+        });
+
+        if (!sentencesResponse.ok) {
+            // handle error
+            console.error('Sentences request failed');
+            return;
+        }
+    
+        const sentencesData = await sentencesResponse.json();
+        
+        const highScoreSentences = sentencesData.filter(sentence => sentence.score > 0.95).map(sentence => sentence.text);
+        console.log(highScoreSentences)
+        setSentences(highScoreSentences);
+        //const sentence_to_highlight = highScoreSentences.map(sentence => sentence.text);//.join(' ');
+
+        
+
+        //
+        
+
         setAnswer('The spike protein is located on the surface of SARS-CoV-2 and helps the virus to enter host cells.');
     };
 
@@ -23,7 +71,7 @@ const BioAnswer = () => {
             <div className="search-bar">
                 <input
                     type="text"
-                    placeholder="Where is the spike protein in sars-cov-2?"
+                    placeholder="What is the triad of the Eagle-Barrett Syndrome?"
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                 />
@@ -41,18 +89,18 @@ const BioAnswer = () => {
             )}
             {paper && (
                 <div className="paper-info">
-                    <h2 className="paper-title">
+                    {/* <h2 className="paper-title">
                         <Highlighter
                             highlightClassName="highlighted"
-                            searchWords={[query]}
+                            searchWords={sentence_to_highlight}
                             autoEscape={true}
                             textToHighlight={paper.title}
                         />
-                    </h2>
+                    </h2> */}
                     <p className="paper-abstract">
                         <Highlighter
                             highlightClassName="highlighted"
-                            searchWords={[query]}
+                            searchWords={sentences}
                             autoEscape={true}
                             textToHighlight={paper.abstract}
                         />
